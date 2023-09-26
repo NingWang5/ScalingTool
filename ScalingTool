@@ -1,0 +1,113 @@
+#!/bin/bash
+
+source config
+source utils.sh
+
+cmd=()
+
+show_help() {
+    echo "Usage: $0 [OPTION]"
+    echo "Option:"
+    echo "  -cf     scaling in core frequency"
+    echo "  -cn     scaling in number of cores"
+    echo "  -cw     scaling in cache ways"
+    echo "  -mb     scaling in memory bandwidth"
+    echo "  -h      show help information"
+}
+
+function run() {
+    num=$1
+    cache=$2
+    mem=$3
+    freq=$4
+    cpu=0-$num
+
+    echo $num,$cache,$mem,$freq,"rdtset -t \"l3=0x$cache;mba=$mem;cpu=$cpu\" -c $cpu -k $cmd" #>> result.csv
+
+    # cpupower -c all frequency-set -d "$freq"mhz
+    # cpupower -c all frequency-set -u "$freq"mhz
+    # rdtset -t "l3=0x$cache;mba=$mem;cpu=$cpu" -c $cpu -k $cmd
+
+}
+
+function main() {
+
+    cmd=${cmd[@]}
+
+    i=$min_mhz
+    if [ "$cf" = false ]; then
+        i=$max_mhz
+    fi
+    for ((; i <= $max_mhz; i = i + $delta_mhz)); do
+
+        j=$min_bitmask
+        if [ "$cw" = false ]; then
+            j=$max_bitmask
+        fi
+        for ((; j <= $max_bitmask; j = j + $delta_bitmask)); do
+            convert $j
+            decimal=$(echo "ibase=2; $binary" | bc)
+            ways=$(printf "%X" "$decimal")
+
+            m=$min_bdw
+            if [ "$mb" = false ]; then
+                m=$max_bdw
+            fi
+            for ((; m <= $max_bdw; m = m + $delta_bdw)); do
+
+                if [ "$cn" = false ]; then
+                    run $((cores-1)) $ways $m $i
+                    continue
+                fi
+                for ((n = 1;n < $cores_per_socket; n*=2)); do
+                    run $((n-1)) $ways $m $i
+                done
+
+                run $((cores_per_socket-1)) $ways $m $i
+                run $((cores-1)) $ways $m $i
+
+            done
+        done
+    done
+
+}
+
+cf=false
+cn=false
+cw=false
+mb=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -cf)
+      cf=true
+      ;;
+    -cn)
+      cn=true
+      ;;
+    -cw)
+      cw=true
+      ;;
+    -mb)
+      mb=true
+      ;;
+    -h)
+      show_help
+      exit 0
+      ;;
+    *)
+      cmd+=("$1")
+      ;;
+  esac
+  shift
+done
+
+if [ ${#cmd[@]} -eq 0 ]; then
+    echo "No workload command!"
+    show_help
+    exit 1
+fi
+
+main
+
+exit 0

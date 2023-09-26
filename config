@@ -1,0 +1,15 @@
+min_bitmask=$(pqos -D | sed -n '/L3 CAT/,/L2 CAT/p' | grep "Min CBM bits" | awk '{print $NF}')  # minimum cache ways
+max_bitmask=$(pqos -D | sed -n '/L3 CAT/,/L2 CAT/p' | grep "Max CBM bits" | awk '{print $NF}')  # maximum cache ways
+delta_bitmask=1 # delta values from min to max for cache benchmark
+
+min_bdw=10      # minimum memory bandwith
+max_bdw=100     # maximum memory bandwith
+delta_bdw=10    # delta values from min to max for bandwith benchmark
+
+max_mhz=$(lscpu | grep "CPU max MHz" | awk '{printf "%.0f", $NF}')  # maximum core frequency
+min_mhz=$(lscpu | grep "CPU min MHz" | awk '{printf "%.0f", $NF}')  # minimum core frequency
+delta_mhz=100   # delta values from min to max for frequency benchmark
+
+cores_per_socket=$(lscpu | grep "Core(s) per socket" | awk '{print $NF}')   # core number in every socket
+sockets=$(lscpu | grep "Socket(s)" | awk '{print $NF}')                     # socket number
+cores=$((cores_per_socket * sockets))                                       # total cores in all sockets
